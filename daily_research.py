@@ -196,7 +196,7 @@ def git_push(date_str):
             ['git', 'commit', '-m', f'Add daily report {date_str}'],
             check=True, cwd=str(BASE_DIR), encoding='utf-8'
         )
-        subprocess.run(['git', 'push', 'origin', 'main'], check=True, cwd=str(BASE_DIR), encoding='utf-8')
+        subprocess.run(['git', 'push', 'origin', 'master'], check=True, cwd=str(BASE_DIR), encoding='utf-8')
         logging.info(f"Pushed report {date_str} to GitHub")
     except subprocess.CalledProcessError as e:
         logging.error(f"Git operation failed: {e}")
