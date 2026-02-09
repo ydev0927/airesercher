@@ -66,7 +66,7 @@ Source: URL
 
     result = subprocess.run(
         ['claude', '-p', prompt, '--allowedTools', 'WebSearch', '--output-format', 'json'],
-        capture_output=True, text=True, timeout=timeout, cwd=str(BASE_DIR)
+        capture_output=True, text=True, encoding='utf-8', timeout=timeout, cwd=str(BASE_DIR)
     )
 
     if result.returncode != 0:
@@ -191,12 +191,12 @@ def generate_index_html():
 def git_push(date_str):
     """Commit and push generated HTML to GitHub"""
     try:
-        subprocess.run(['git', 'add', 'output/'], check=True, cwd=str(BASE_DIR))
+        subprocess.run(['git', 'add', 'output/'], check=True, cwd=str(BASE_DIR), encoding='utf-8')
         subprocess.run(
             ['git', 'commit', '-m', f'Add daily report {date_str}'],
-            check=True, cwd=str(BASE_DIR)
+            check=True, cwd=str(BASE_DIR), encoding='utf-8'
         )
-        subprocess.run(['git', 'push', 'origin', 'main'], check=True, cwd=str(BASE_DIR))
+        subprocess.run(['git', 'push', 'origin', 'main'], check=True, cwd=str(BASE_DIR), encoding='utf-8')
         logging.info(f"Pushed report {date_str} to GitHub")
     except subprocess.CalledProcessError as e:
         logging.error(f"Git operation failed: {e}")
