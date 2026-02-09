@@ -3,3 +3,5 @@
 logs/
 __pycache__/
 .venv/
+docs/STATUS.md
+docs/plans/
