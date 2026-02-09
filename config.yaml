@@ -1,0 +1,16 @@
+categories:
+  ai_tech:
+    name: "AI技術"
+    query: "AI・機械学習の最新技術動向（新モデル、フレームワーク、論文）"
+  ai_security:
+    name: "AIセキュリティ"
+    query: "AIに関するセキュリティ（脅威、脆弱性、対策、規制）"
+  ai_business:
+    name: "AIビジネス"
+    query: "AI関連のビジネス動向（企業、投資、M&A、活用事例）"
+
+topics_per_category: 7
+retry_max: 3
+retry_interval_sec: 1800
+github_pages_base_url: ""
+claude_timeout_sec: 300
