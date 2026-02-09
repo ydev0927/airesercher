@@ -8,11 +8,13 @@ import yaml
 from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
+from jinja2 import Environment, FileSystemLoader
 
 # Project root
 BASE_DIR = Path(__file__).resolve().parent
 OUTPUT_DIR = BASE_DIR / "output"
 LOGS_DIR = BASE_DIR / "logs"
+TEMPLATE_DIR = BASE_DIR / "templates"
 
 
 def setup_logging(date_str):
@@ -147,6 +149,43 @@ def collect_all(config):
     return categories_result
 
 
+def generate_report_html(date_str, generated_at, categories):
+    """Generate daily report HTML from template"""
+    OUTPUT_DIR.mkdir(exist_ok=True)
+    env = Environment(loader=FileSystemLoader(str(TEMPLATE_DIR)))
+    template = env.get_template("report.html")
+    html = template.render(
+        date=date_str,
+        generated_at=generated_at,
+        categories=categories
+    )
+    output_path = OUTPUT_DIR / f"{date_str}.html"
+    output_path.write_text(html, encoding="utf-8")
+    logging.info(f"Generated report: {output_path}")
+    return output_path
+
+
+def generate_index_html():
+    """Regenerate index.html with list of all reports"""
+    OUTPUT_DIR.mkdir(exist_ok=True)
+    env = Environment(loader=FileSystemLoader(str(TEMPLATE_DIR)))
+    template = env.get_template("index.html")
+
+    # Find all report HTML files (YYYY-MM-DD.html pattern)
+    report_files = sorted(
+        [f.stem for f in OUTPUT_DIR.glob("????-??-??.html")],
+        reverse=True
+    )[:30]  # Last 30 days
+
+    reports = [{"date": date} for date in report_files]
+    latest_date = report_files[0] if report_files else None
+
+    html = template.render(latest_date=latest_date, reports=reports)
+    index_path = OUTPUT_DIR / "index.html"
+    index_path.write_text(html, encoding="utf-8")
+    logging.info(f"Generated index: {index_path}")
+
+
 def main():
     today = datetime.now().strftime("%Y-%m-%d")
     setup_logging(today)
@@ -183,7 +222,17 @@ def main():
     categories = collect_all(config)
     logging.info(f"Collection complete: {sum(len(c['topics']) for c in categories.values())} total topics")
 
-    # TODO: HTML generation (Task 4)
+    # HTML generation
+    generated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    generate_report_html(today, generated_at, categories)
+    generate_index_html()
+    logging.info("HTML generation complete")
+
+    if test_html:
+        output_path = OUTPUT_DIR / f"{today}.html"
+        print(f"Report generated: {output_path}")
+        return
+
     # TODO: Git push (Task 5)
     # TODO: Teams notification (Task 5)
 
