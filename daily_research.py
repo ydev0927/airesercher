@@ -203,7 +203,7 @@ def git_push(date_str):
         raise
 
 
-def notify_teams(date_str, topics_count, config):
+def notify_teams(date_str, topics_count, categories, config):
     """Send notification to Teams via Incoming Webhook"""
     webhook_url = os.environ.get("TEAMS_WEBHOOK_URL", "")
     if not webhook_url:
@@ -212,6 +212,40 @@ def notify_teams(date_str, topics_count, config):
 
     base_url = config.get("github_pages_base_url", "")
     report_url = f"{base_url}/{date_str}.html" if base_url else ""
+
+    # Build body with category sections
+    body = [
+        {
+            "type": "TextBlock",
+            "text": f"AI Daily Report - {date_str}",
+            "weight": "Bolder",
+            "size": "Medium"
+        },
+        {
+            "type": "TextBlock",
+            "text": f"{topics_count}件のトピックを収集しました",
+            "wrap": True,
+            "spacing": "Small"
+        }
+    ]
+
+    for cat in categories.values():
+        # Category header
+        body.append({
+            "type": "TextBlock",
+            "text": cat["name"],
+            "weight": "Bolder",
+            "spacing": "Medium",
+            "separator": True
+        })
+        # Topic titles as bullet list
+        titles = "\r".join(f"- {t['title']}" for t in cat["topics"])
+        body.append({
+            "type": "TextBlock",
+            "text": titles,
+            "wrap": True,
+            "spacing": "Small"
+        })
 
     card = {
         "type": "message",
@@ -222,19 +256,7 @@ def notify_teams(date_str, topics_count, config):
                 "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
                 "type": "AdaptiveCard",
                 "version": "1.4",
-                "body": [
-                    {
-                        "type": "TextBlock",
-                        "text": f"AI Daily Report - {date_str}",
-                        "weight": "Bolder",
-                        "size": "Medium"
-                    },
-                    {
-                        "type": "TextBlock",
-                        "text": f"{topics_count}件のトピックを収集しました",
-                        "wrap": True
-                    }
-                ]
+                "body": body
             }
         }]
     }
@@ -280,7 +302,7 @@ def run_with_retry(config):
             git_push(today)
 
             # Notify Teams
-            notify_teams(today, total_topics, config)
+            notify_teams(today, total_topics, categories, config)
 
             logging.info(f"Pipeline complete: {total_topics} topics collected and published")
             return  # Success
