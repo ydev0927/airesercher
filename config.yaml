@@ -12,5 +12,5 @@ categories:
 topics_per_category: 7
 retry_max: 3
 retry_interval_sec: 1800
-github_pages_base_url: "https://ydev0927.github.io/airesercher/output"
+github_pages_base_url: "https://ydev0927.github.io/airesercher"
 claude_timeout_sec: 300

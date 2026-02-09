@@ -14,7 +14,7 @@ from jinja2 import Environment, FileSystemLoader
 
 # Project root
 BASE_DIR = Path(__file__).resolve().parent
-OUTPUT_DIR = BASE_DIR / "output"
+OUTPUT_DIR = BASE_DIR / "docs"
 LOGS_DIR = BASE_DIR / "logs"
 TEMPLATE_DIR = BASE_DIR / "templates"
 
@@ -191,7 +191,7 @@ def generate_index_html():
 def git_push(date_str):
     """Commit and push generated HTML to GitHub"""
     try:
-        subprocess.run(['git', 'add', 'output/'], check=True, cwd=str(BASE_DIR), encoding='utf-8')
+        subprocess.run(['git', 'add', 'docs/'], check=True, cwd=str(BASE_DIR), encoding='utf-8')
         subprocess.run(
             ['git', 'commit', '-m', f'Add daily report {date_str}'],
             check=True, cwd=str(BASE_DIR), encoding='utf-8'
