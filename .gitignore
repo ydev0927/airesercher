@@ -1,4 +1,5 @@
 .env
+.claude/
 logs/
 __pycache__/
 .venv/
