@@ -4,7 +4,9 @@ import json
 import re
 import subprocess
 import logging
+import time
 import yaml
+import requests
 from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
@@ -186,6 +188,113 @@ def generate_index_html():
     logging.info(f"Generated index: {index_path}")
 
 
+def git_push(date_str):
+    """Commit and push generated HTML to GitHub"""
+    try:
+        subprocess.run(['git', 'add', 'output/'], check=True, cwd=str(BASE_DIR))
+        subprocess.run(
+            ['git', 'commit', '-m', f'Add daily report {date_str}'],
+            check=True, cwd=str(BASE_DIR)
+        )
+        subprocess.run(['git', 'push', 'origin', 'main'], check=True, cwd=str(BASE_DIR))
+        logging.info(f"Pushed report {date_str} to GitHub")
+    except subprocess.CalledProcessError as e:
+        logging.error(f"Git operation failed: {e}")
+        raise
+
+
+def notify_teams(date_str, topics_count, config):
+    """Send notification to Teams via Incoming Webhook"""
+    webhook_url = os.environ.get("TEAMS_WEBHOOK_URL", "")
+    if not webhook_url:
+        logging.warning("TEAMS_WEBHOOK_URL not set, skipping notification")
+        return
+
+    base_url = config.get("github_pages_base_url", "")
+    report_url = f"{base_url}/{date_str}.html" if base_url else ""
+
+    card = {
+        "type": "message",
+        "attachments": [{
+            "contentType": "application/vnd.microsoft.card.adaptive",
+            "contentUrl": None,
+            "content": {
+                "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                "type": "AdaptiveCard",
+                "version": "1.4",
+                "body": [
+                    {
+                        "type": "TextBlock",
+                        "text": f"AI Daily Report - {date_str}",
+                        "weight": "Bolder",
+                        "size": "Medium"
+                    },
+                    {
+                        "type": "TextBlock",
+                        "text": f"{topics_count}件のトピックを収集しました",
+                        "wrap": True
+                    }
+                ]
+            }
+        }]
+    }
+
+    # Add link action if base URL is configured
+    if report_url:
+        card["attachments"][0]["content"]["actions"] = [{
+            "type": "Action.OpenUrl",
+            "title": "レポートを見る",
+            "url": report_url
+        }]
+
+    try:
+        resp = requests.post(webhook_url, json=card, timeout=30)
+        resp.raise_for_status()
+        logging.info("Teams notification sent")
+    except Exception as e:
+        logging.error(f"Teams notification failed: {e}")
+        # Don't raise - notification failure shouldn't block the pipeline
+
+
+def run_with_retry(config):
+    """Run the main pipeline with retry logic"""
+    today = datetime.now().strftime("%Y-%m-%d")
+    max_retries = config.get("retry_max", 3)
+    interval = config.get("retry_interval_sec", 1800)
+
+    for attempt in range(1, max_retries + 1):
+        try:
+            logging.info(f"Attempt {attempt}/{max_retries}")
+
+            # Collect
+            categories = collect_all(config)
+            total_topics = sum(len(c['topics']) for c in categories.values())
+
+            # Generate HTML
+            generated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            generate_report_html(today, generated_at, categories)
+            generate_index_html()
+            logging.info("HTML generation complete")
+
+            # Git push
+            git_push(today)
+
+            # Notify Teams
+            notify_teams(today, total_topics, config)
+
+            logging.info(f"Pipeline complete: {total_topics} topics collected and published")
+            return  # Success
+
+        except Exception as e:
+            logging.error(f"Attempt {attempt} failed: {e}")
+            if attempt < max_retries:
+                logging.info(f"Retrying in {interval} seconds...")
+                time.sleep(interval)
+            else:
+                logging.error(f"All {max_retries} attempts failed")
+                raise
+
+
 def main():
     today = datetime.now().strftime("%Y-%m-%d")
     setup_logging(today)
@@ -217,24 +326,21 @@ def main():
             print(f"    Source: {t['source']}")
         return
 
-    # Full collection (for normal mode and --test-html)
-    logging.info(f"Starting collection for {today}")
-    categories = collect_all(config)
-    logging.info(f"Collection complete: {sum(len(c['topics']) for c in categories.values())} total topics")
-
-    # HTML generation
-    generated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    generate_report_html(today, generated_at, categories)
-    generate_index_html()
-    logging.info("HTML generation complete")
-
     if test_html:
+        # Test HTML mode: collect and generate, but skip git push / notify
+        logging.info(f"Starting collection for {today}")
+        categories = collect_all(config)
+        logging.info(f"Collection complete: {sum(len(c['topics']) for c in categories.values())} total topics")
+        generated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        generate_report_html(today, generated_at, categories)
+        generate_index_html()
+        logging.info("HTML generation complete")
         output_path = OUTPUT_DIR / f"{today}.html"
         print(f"Report generated: {output_path}")
         return
 
-    # TODO: Git push (Task 5)
-    # TODO: Teams notification (Task 5)
+    # Normal mode
+    run_with_retry(config)
 
 
 if __name__ == "__main__":
